@@ -7,9 +7,12 @@ from .tasks import TaskModel
 
 import os
 
+import tensorflow as tf
+gfile = tf.io.gfile
+
 
 class DatasetModel(DynamicDocument):
-    
+
     id = SequenceField(primary_key=True)
     name = StringField(required=True, unique=True)
     directory = StringField()
@@ -29,7 +32,7 @@ class DatasetModel(DynamicDocument):
     def save(self, *args, **kwargs):
 
         directory = os.path.join(Config.DATASET_DIRECTORY, self.name + '/')
-        os.makedirs(directory, mode=0o777, exist_ok=True)
+        gfile.makedirs(directory)
 
         self.directory = directory
         self.owner = current_user.username if current_user else 'system'
@@ -38,7 +41,7 @@ class DatasetModel(DynamicDocument):
 
     def get_users(self):
         from .users import UserModel
-    
+
         members = self.users
         members.append(self.owner)
 
@@ -89,14 +92,14 @@ class DatasetModel(DynamicDocument):
     def scan(self):
 
         from workers.tasks import scan_dataset
-        
+
         task = TaskModel(
             name=f"Scanning {self.name} for new images",
             dataset_id=self.id,
             group="Directory Image Scan"
         )
         task.save()
-        
+
         cel_task = scan_dataset.delay(task.id, self.id)
 
         return {
@@ -109,7 +112,7 @@ class DatasetModel(DynamicDocument):
 
         if user.is_admin:
             return True
-        
+
         return user.username.lower() == self.owner.lower()
 
     def can_download(self, user):
@@ -117,16 +120,16 @@ class DatasetModel(DynamicDocument):
 
     def can_delete(self, user):
         return self.is_owner(user)
-    
+
     def can_share(self, user):
         return self.is_owner(user)
-    
+
     def can_generate(self, user):
         return self.is_owner(user)
 
     def can_edit(self, user):
         return user.username in self.users or self.is_owner(user)
-    
+
     def permissions(self, user):
         return {
             'owner': self.is_owner(user),

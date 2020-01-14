@@ -5,9 +5,24 @@ import imantics as im
 from PIL import Image
 from mongoengine import *
 
+import io
+import cv2
+import numpy as np
+from urllib.parse import urlparse
+
+import tensorflow as tf
+gfile = tf.io.gfile
+
 from .events import Event, SessionEvent
 from .datasets import DatasetModel
 from .annotations import AnnotationModel
+
+import logging
+logger = logging.getLogger('gunicorn.error')
+
+def isfile(path):
+    return os.path.isfile(path) if os.path.exists(path) \
+        else gfile.exists(path) and not gfile.isdir(path)
 
 class ImageModel(DynamicDocument):
 
@@ -34,13 +49,13 @@ class ImageModel(DynamicDocument):
     width = IntField(required=True)
     height = IntField(required=True)
     file_name = StringField()
-    
+
     # True if the image is annotated
     annotated = BooleanField(default=False)
     # Poeple currently annotation the image
     annotating = ListField(default=[])
     num_annotations = IntField(default=0)
-    
+
     thumbnail_url = StringField()
     image_url = StringField()
     coco_url = StringField()
@@ -59,7 +74,8 @@ class ImageModel(DynamicDocument):
     @classmethod
     def create_from_path(cls, path, dataset_id=None):
 
-        pil_image = Image.open(path)
+        fp = gfile.GFile(path, 'rb')
+        pil_image = Image.open(fp)
 
         image = cls()
         image.file_name = os.path.basename(path)
@@ -92,13 +108,13 @@ class ImageModel(DynamicDocument):
         """
         Generates (if required) and returns thumbnail
         """
-        
+
         thumbnail_path = self.thumbnail_path()
 
         if self.regenerate_thumbnail or \
-            not os.path.isfile(thumbnail_path):
-            
-            # logger.debug(f'Generating thumbnail for {self.id}')
+            not isfile(thumbnail_path):
+
+            logger.debug(f'Generating thumbnail for {self.id}')
 
             pil_image = self.generate_thumbnail()
             pil_image = pil_image.convert("RGB")
@@ -108,29 +124,35 @@ class ImageModel(DynamicDocument):
 
             # Save as a jpeg to improve loading time
             # (note file extension will not match but allows for backwards compatibility)
-            pil_image.save(thumbnail_path, "JPEG", quality=80, optimize=True, progressive=True)
+            with gfile.GFile(thumbnail_path, 'wb') as fp:
+                buf = io.BytesIO()
+                pil_image.save(buf, "JPEG", quality=80, optimize=True, progressive=True)
+                fp.write(buf.getvalue())
 
             self.update(is_modified=False)
             return pil_image
         else:
-            return Image.open(thumbnail_path)
-    
+            fp = gfile.GFile(thumbnail_path, 'rb')
+            return Image.open(fp)
+
     def thumbnail_path(self):
-        folders = self.path.split('/')
+        parsed = urlparse(self.path)
+
+        folders = parsed.path.split('/')
         folders.insert(len(folders)-1, self.THUMBNAIL_DIRECTORY)
 
-        path = '/' + os.path.join(*folders)
+        path = parsed._replace(path='/'.join(folders)).geturl()
         directory = os.path.dirname(path)
 
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        
+        if not gfile.exists(directory):
+            gfile.makedirs(directory)
+
         return path
-    
+
     def thumbnail_delete(self):
         path = self.thumbnail_path()
-        if os.path.isfile(path):
-            os.remove(path)
+        if isfile(path):
+            gfile.remove(path)
 
     def generate_thumbnail(self):
         image = self().draw(color_by_category=True, bbox=False)
@@ -170,26 +192,32 @@ class ImageModel(DynamicDocument):
 
     def __call__(self):
 
-        image = im.Image.from_path(self.path)
+        fp = gfile.GFile(self.path, 'rb')
+        image_array = np.fromstring(fp.read(), dtype=np.uint8)
+
+        image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = im.Image(image, path=self.path)
+
         for annotation in AnnotationModel.objects(image_id=self.id, deleted=False).all():
             if not annotation.is_empty():
                 image.add(annotation())
 
         return image
-    
+
     def can_delete(self, user):
         return user.can_delete(self.dataset)
-    
+
     def can_download(self, user):
         return user.can_download(self.dataset)
-    
+
     # TODO: Fix why using the functions throws an error
     def permissions(self, user):
         return {
             'delete': True,
             'download': True
         }
-    
+
     def add_event(self, e):
         u = {
             'push__events': e,

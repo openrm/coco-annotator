@@ -15,6 +15,9 @@ import datetime
 import os
 import io
 
+import tensorflow as tf
+gfile = tf.io.gfile
+
 
 api = Namespace('image', description='Image related operations')
 
@@ -85,11 +88,11 @@ class Images(Resource):
         directory = os.path.join(Config.DATASET_DIRECTORY, folder)
         path = os.path.join(directory, image.filename)
 
-        if os.path.exists(path):
+        if gfile.exists(path):
             return {'message': 'file already exists'}, 400
 
-        if not os.path.exists(directory):
-            os.makedirs(directory)
+        if not gfile.exists(directory):
+            gfile.makedirs(directory)
 
         pil_image = Image.open(io.BytesIO(image.read()))
 
@@ -101,7 +104,10 @@ class Images(Resource):
         )
 
         image_model.save()
-        pil_image.save(path)
+        fp = gfile.GFile(path, 'wb')
+        buf = io.BytesIO()
+        pil_image.save(buf, format=pil_image.format)
+        fp.write(buf.getvalue())
 
         image.close()
         pil_image.close()
@@ -126,15 +132,20 @@ class ImageId(Resource):
 
         width = args.get('width')
         height = args.get('height')
-        
+
         if not width:
             width = image.width
         if not height:
             height = image.height
-        
-        pil_image = image.thumbnail() if thumbnail else Image.open(image.path)
+
+        if thumbnail:
+            pil_image = image.thumbnail()
+        else:
+            fp = gfile.GFile(image.path, 'rb')
+            pil_image = Image.open(fp)
+
         image.flag_thumbnail(flag=False)
-        
+
         pil_image.thumbnail((width, height), Image.ANTIALIAS)
         image_io = io.BytesIO()
         pil_image = pil_image.convert("RGB")
@@ -197,7 +208,7 @@ class ImageCoco(Resource):
     def get(self, image_id):
         """ Returns coco of image and annotations """
         image = current_user.images.filter(id=image_id).exclude('deleted_date').first()
-        
+
         if image is None:
             return {"message": "Invalid image ID"}, 400
 

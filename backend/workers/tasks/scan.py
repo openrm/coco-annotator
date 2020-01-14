@@ -9,6 +9,9 @@ from ..socket import create_socket
 
 import os
 
+import tensorflow as tf
+gfile = tf.io.gfile
+
 
 @shared_task
 def scan_dataset(task_id, dataset_id):
@@ -18,13 +21,13 @@ def scan_dataset(task_id, dataset_id):
 
     task.update(status="PROGRESS")
     socket = create_socket()
-    
+
     directory = dataset.directory
-    toplevel = list(os.listdir(directory))
+    toplevel = list(gfile.listdir(directory))
     task.info(f"Scanning {directory}")
 
     count = 0
-    for root, dirs, files in os.walk(directory):
+    for root, dirs, files in gfile.walk(directory):
 
         try:
             youarehere = toplevel.index(root.split('/')[-1])
@@ -35,7 +38,7 @@ def scan_dataset(task_id, dataset_id):
 
         if root.split('/')[-1].startswith('.'):
             continue
-        
+
         for file in files:
             path = os.path.join(root, file)
 
