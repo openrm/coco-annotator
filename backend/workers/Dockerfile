@@ -1,4 +1,4 @@
-FROM jsbroks/coco-annotator:python-env
+FROM openrm/coco-annotator:python-env
 
 WORKDIR /workspace/
 

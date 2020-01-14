@@ -15,7 +15,7 @@ ENV NODE_PATH=/workspace/node_modules
 WORKDIR /workspace/client
 RUN npm run build
 
-FROM jsbroks/coco-annotator:python-env
+FROM openrm/coco-annotator:python-env
 
 WORKDIR /workspace/
 COPY ./backend/ /workspace/

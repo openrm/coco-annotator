@@ -3,12 +3,8 @@ FROM python:3.6
 
 WORKDIR /workspace/
 
-# Copy backend
-COPY ./backend/requirements.txt /workspace/
-
 # Install python package dependices
-RUN pip install -r requirements.txt && \
-    pip install gunicorn[eventlet]==19.9.0 && \
+RUN pip install cython numpy gunicorn[eventlet]==19.9.0 && \
     pip install pycocotools
 
 # Install maskrcnn
@@ -23,3 +19,7 @@ RUN git clone --single --depth 1 https://github.com/jsbroks/dextr-keras.git /tmp
     pip install -r requirements.txt && \
     python setup.py install
 
+# Copy backend
+COPY ./backend/requirements.txt /workspace/
+
+RUN pip install -r requirements.txt
