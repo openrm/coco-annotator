@@ -18,7 +18,7 @@ import logging
 logger = logging.getLogger('gunicorn.error')
 
 
-socketio = SocketIO()
+socketio = SocketIO(cors_allowed_origins=Config.CORS_ALLOWED_ORIGINS)
 
 
 def authenticated_only(f):
@@ -46,12 +46,12 @@ def annotating(data):
 
     image_id = data.get('image_id')
     active = data.get('active')
-    
+
     image = ImageModel.objects(id=image_id).first()
     if image is None:
         # invalid image ID
         return
-    
+
     emit('annotating', {
         'image_id': image_id,
         'active': active,
@@ -118,7 +118,7 @@ def disconnect():
             if image is not None:
                 start = session.get('annotating_time', time.time())
                 event = SessionEvent.create(start, current_user)
-        
+
                 image.add_event(event)
                 image.update(
                     pull__annotating=current_user.username
@@ -128,4 +128,4 @@ def disconnect():
                     'active': False,
                     'username': current_user.username
                 }, broadcast=True, include_self=False)
-               
+

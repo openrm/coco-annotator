@@ -62,5 +62,10 @@ class Config:
 
     DEXTR_FILE = os.getenv("DEXTR_FILE", "/models/dextr_pascal-sbd.h5")
 
+    CORS_ALLOWED_ORIGINS = [
+        origin for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").replace(" ", "").split(",")
+        if len(origin) > 0
+    ]
+
 
 __all__ = ["Config"]
