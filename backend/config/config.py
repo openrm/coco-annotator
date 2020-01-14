@@ -17,7 +17,7 @@ class Config:
     IGNORE_DIRECTORIES = ["_thumbnail", "_settings"]
 
     # Flask/Gunicorn
-    #   
+    #
     #   LOG_LEVEL - The granularity of log output
     #
     #       A string of "debug", "info", "warning", "error", "critical"
@@ -38,15 +38,15 @@ class Config:
     MAX_CONTENT_LENGTH = os.getenv("MAX_CONTENT_LENGTH", 1 * 1024 * 1024 * 1024)  # 1GB
     MONGODB_HOST = os.getenv("MONGODB_HOST", "mongodb://database/flask")
     SECRET_KEY = os.getenv("SECRET_KEY", "<--- CHANGE THIS KEY --->")
-    
-    LOG_LEVEL = 'debug'
+
+    LOG_LEVEL = os.getenv("LOG_LEVEL", 'info')
     WORKER_CONNECTIONS = 1000
-    
+
     TESTING = os.getenv("TESTING", False)
 
     ### Workers
-    CELERY_BROKER_URL = "amqp://user:password@messageq:5672//"
-    CELERY_RESULT_BACKEND = "mongodb://database/flask"
+    CELERY_BROKER_URL = os.getenv("BROKER_URL", "amqp://user:password@messageq:5672//")
+    CELERY_RESULT_BACKEND = os.getenv("BROKER_RESULT_BACKEND", "mongodb://database/flask")
 
     ### Dataset Options
     DATASET_DIRECTORY = os.getenv("DATASET_DIRECTORY", "/datasets/")
@@ -54,7 +54,7 @@ class Config:
 
     ### User Options
     LOGIN_DISABLED = os.getenv("LOGIN_DISABLED", False)
-    ALLOW_REGISTRATION = True
+    ALLOW_REGISTRATION = os.getenv("ALLOW_REGISTRATION", "True").lower() == "true"
 
     ### Models
     MASK_RCNN_FILE = os.getenv("MASK_RCNN_FILE", "")
