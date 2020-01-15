@@ -104,12 +104,14 @@ class ImageModel(DynamicDocument):
         AnnotationModel.objects(image_id=self.id).delete()
         return super(ImageModel, self).delete(*args, **kwargs)
 
-    def thumbnail(self):
+    def thumbnail(self, size, path_only=False):
         """
         Generates (if required) and returns thumbnail
         """
+        if size is None:
+            size = self.MAX_THUMBNAIL_DIM
 
-        thumbnail_path = self.thumbnail_path()
+        thumbnail_path = self.thumbnail_path(size)
 
         if self.regenerate_thumbnail or \
             not isfile(thumbnail_path):
@@ -122,24 +124,35 @@ class ImageModel(DynamicDocument):
             # Resize image to fit in MAX_THUMBNAIL_DIM envelope as necessary
             pil_image.thumbnail((self.MAX_THUMBNAIL_DIM[1], self.MAX_THUMBNAIL_DIM[0]))
 
+            buf = io.BytesIO()
+
             # Save as a jpeg to improve loading time
             # (note file extension will not match but allows for backwards compatibility)
             with gfile.GFile(thumbnail_path, 'wb') as fp:
-                buf = io.BytesIO()
                 pil_image.save(buf, "JPEG", quality=80, optimize=True, progressive=True)
                 fp.write(buf.getvalue())
 
             self.update(is_modified=False)
-            return pil_image
-        else:
-            fp = gfile.GFile(thumbnail_path, 'rb')
-            return Image.open(fp)
 
-    def thumbnail_path(self):
+            if not path_only:
+                buf.seek(0)
+                return buf
+        else:
+            if not path_only:
+                return gfile.GFile(thumbnail_path, 'rb')
+
+        return thumbnail_path
+
+    def thumbnail_path(self, size):
         parsed = urlparse(self.path)
+        width, height = size
 
         folders = parsed.path.split('/')
         folders.insert(len(folders)-1, self.THUMBNAIL_DIRECTORY)
+
+        filename = os.path.basename(parsed.path)
+        root, ext = os.path.splitext(filename)
+        folders[len(folders)-1] = root + f'.{width}x{height}' + ext
 
         path = parsed._replace(path='/'.join(folders)).geturl()
         directory = os.path.dirname(path)

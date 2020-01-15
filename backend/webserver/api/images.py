@@ -1,9 +1,9 @@
 from flask_restplus import Namespace, Resource, reqparse
 from flask_login import login_required, current_user
 from werkzeug.datastructures import FileStorage
-from flask import send_file
+from flask import send_file, redirect
 
-from ..util import query_util, coco_util
+from ..util import query_util, coco_util, storage_util
 from database import (
     ImageModel,
     DatasetModel,
@@ -17,6 +17,9 @@ import io
 
 import tensorflow as tf
 gfile = tf.io.gfile
+
+import logging
+logger = logging.getLogger('gunicorn.error')
 
 
 api = Namespace('image', description='Image related operations')
@@ -138,19 +141,26 @@ class ImageId(Resource):
         if not height:
             height = image.height
 
+        if thumbnail and not as_attachment:
+            url = image.thumbnail((width, height), path_only=True)
+            signed_url = storage_util.sign_url(url, expiration=datetime.timedelta(minutes=30))
+            return redirect(signed_url)
+
+        image_io = io.BytesIO()
+
         if thumbnail:
-            pil_image = image.thumbnail()
+            image_io = image.thumbnail((width, height))
         else:
             fp = gfile.GFile(image.path, 'rb')
             pil_image = Image.open(fp)
 
-        image.flag_thumbnail(flag=False)
+            pil_image.thumbnail((width, height), Image.ANTIALIAS)
+            pil_image = pil_image.convert("RGB")
+            pil_image.save(image_io, "JPEG", quality=90)
 
-        pil_image.thumbnail((width, height), Image.ANTIALIAS)
-        image_io = io.BytesIO()
-        pil_image = pil_image.convert("RGB")
-        pil_image.save(image_io, "JPEG", quality=90)
         image_io.seek(0)
+
+        image.flag_thumbnail(flag=False)
 
         return send_file(image_io, attachment_filename=image.file_name, as_attachment=as_attachment)
 

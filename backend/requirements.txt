@@ -18,3 +18,4 @@ flask-socketio==3.3.2
 celery==4.4.0
 redis==3.3.11
 tensorflow==2.1
+google-cloud-storage
