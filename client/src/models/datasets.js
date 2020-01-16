@@ -19,7 +19,8 @@ export default {
   },
   create(name, categories) {
     return axios.post(`${baseURL}/?name=${name}`, {
-      categories: categories
+        categories: categories,
+        thumbnail_size: '250x'
     });
   },
   generate(id, body) {

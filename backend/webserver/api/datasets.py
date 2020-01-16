@@ -33,6 +33,7 @@ dataset_create = reqparse.RequestParser()
 dataset_create.add_argument('name', required=True)
 dataset_create.add_argument('categories', type=list, required=False, location='json',
                             help="List of default categories for sub images")
+dataset_create.add_argument('thumbnail_size', type=str, default='250x')
 
 page_data = reqparse.RequestParser()
 page_data.add_argument('page', default=1, type=int)
@@ -78,11 +79,14 @@ class Dataset(Resource):
         args = dataset_create.parse_args()
         name = args['name']
         categories = args.get('categories', [])
+        thumbnail_size = args['thumbnail_size']
 
         category_ids = CategoryModel.bulk_create(categories)
 
         try:
-            dataset = DatasetModel(name=name, categories=category_ids)
+            dataset = DatasetModel(name=name,
+                                   categories=category_ids,
+                                   thumbnail_size=thumbnail_size)
             dataset.save()
         except NotUniqueError:
             return {'message': 'Dataset already exists. Check the undo tab to fully delete the dataset.'}, 400

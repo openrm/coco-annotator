@@ -13,7 +13,6 @@ from database import (
 
 from flask import Flask
 from flask_cors import CORS
-from flask_socketio import SocketIO
 from werkzeug.contrib.fixers import ProxyFix
 
 from celery import Celery

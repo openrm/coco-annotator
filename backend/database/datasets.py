@@ -17,6 +17,7 @@ class DatasetModel(DynamicDocument):
     name = StringField(required=True, unique=True)
     directory = StringField()
     thumbnails = StringField()
+    thumbnail_size = StringField()
     categories = ListField(default=[])
 
     owner = StringField(required=True)
@@ -100,7 +101,13 @@ class DatasetModel(DynamicDocument):
         )
         task.save()
 
-        cel_task = scan_dataset.delay(task.id, self.id)
+        def parse_int(s):
+            return int(s) if len(s) > 0 else None
+
+        width, height = self.thumbnail_size.split('x')
+
+        cel_task = scan_dataset.delay(task.id, self.id,
+                                      (parse_int(width), parse_int(height)))
 
         return {
             "celery_id": cel_task.id,

@@ -14,7 +14,7 @@ gfile = tf.io.gfile
 
 
 @shared_task
-def scan_dataset(task_id, dataset_id):
+def scan_dataset(task_id, dataset_id, thumbnail_size):
 
     task = TaskModel.objects.get(id=task_id)
     dataset = DatasetModel.objects.get(id=dataset_id)
@@ -49,10 +49,13 @@ def scan_dataset(task_id, dataset_id):
                     continue
 
                 try:
-                    ImageModel.create_from_path(path, dataset.id).save()
+                    image = ImageModel.create_from_path(path, dataset.id)
+                    image.save()
+                    _ = image.thumbnail(thumbnail_size, path_only=True)
                     count += 1
                     task.info(f"New file found: {path}")
-                except:
+                except Exception as e:
+                    task.warning(e)
                     task.warning(f"Could not read {path}")
 
     task.info(f"Created {count} new image(s)")

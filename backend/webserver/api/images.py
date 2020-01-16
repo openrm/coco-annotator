@@ -18,9 +18,6 @@ import io
 import tensorflow as tf
 gfile = tf.io.gfile
 
-import logging
-logger = logging.getLogger('gunicorn.error')
-
 
 api = Namespace('image', description='Image related operations')
 
