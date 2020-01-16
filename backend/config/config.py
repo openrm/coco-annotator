@@ -40,6 +40,7 @@ class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "<--- CHANGE THIS KEY --->")
 
     LOG_LEVEL = os.getenv("LOG_LEVEL", 'info')
+    WORKERS = 1
     WORKER_CONNECTIONS = 1000
 
     TESTING = os.getenv("TESTING", False)

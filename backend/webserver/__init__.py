@@ -1,5 +1,5 @@
-import eventlet
-eventlet.monkey_patch(thread=False)
+from gevent import monkey
+monkey.patch_all()
 
 import sys
 import workers
@@ -64,7 +64,7 @@ app = create_app()
 logger = logging.getLogger('gunicorn.error')
 app.logger.handlers = logger.handlers
 app.logger.setLevel(logger.level)
-    
+
 
 if Config.INITIALIZE_FROM_FILE:
     create_from_json(Config.INITIALIZE_FROM_FILE)
@@ -73,7 +73,7 @@ if Config.INITIALIZE_FROM_FILE:
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def index(path):
-    
+
     if app.debug:
         return requests.get('http://frontend:8080/{}'.format(path)).text
 

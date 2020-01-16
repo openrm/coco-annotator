@@ -136,10 +136,12 @@ class ImageId(Resource):
         width = args.get('width')
         height = args.get('height')
 
+        if not width and not height:
+            width, height = image.width, image.height
         if not width:
-            width = image.width
+            width = image.width * height // image.height
         if not height:
-            height = image.height
+            height = image.height * width // image.width
 
         if thumbnail and not as_attachment:
             url = image.thumbnail((width, height), path_only=True)
