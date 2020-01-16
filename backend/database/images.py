@@ -56,6 +56,7 @@ class ImageModel(DynamicDocument):
     annotating = ListField(default=[])
     num_annotations = IntField(default=0)
 
+    thumbnails = DictField()
     thumbnail_url = StringField()
     image_url = StringField()
     coco_url = StringField()
@@ -111,10 +112,10 @@ class ImageModel(DynamicDocument):
         if size is None:
             size = self.MAX_THUMBNAIL_DIM
 
-        thumbnail_path = self.thumbnail_path(size)
+        key = '{}x{}'.format(size[0], size[1])
 
-        if self.regenerate_thumbnail or \
-            not isfile(thumbnail_path):
+        if self.regenerate_thumbnail or key not in self.thumbnails:
+            thumbnail_path = self.thumbnail_path(size)
 
             logger.debug(f'Generating thumbnail for {self.id}')
 
@@ -122,7 +123,9 @@ class ImageModel(DynamicDocument):
             pil_image = pil_image.convert("RGB")
 
             # Resize image to fit in MAX_THUMBNAIL_DIM envelope as necessary
-            pil_image.thumbnail((self.MAX_THUMBNAIL_DIM[1], self.MAX_THUMBNAIL_DIM[0]))
+            if size is None:
+                size = (self.MAX_THUMBNAIL_DIM[1], self.MAX_THUMBNAIL_DIM[0])
+            pil_image.thumbnail(size)
 
             buf = io.BytesIO()
 
@@ -132,7 +135,11 @@ class ImageModel(DynamicDocument):
                 pil_image.save(buf, "JPEG", quality=80, optimize=True, progressive=True)
                 fp.write(buf.getvalue())
 
-            self.update(is_modified=False)
+            self.update(**{
+                'is_modified': False,
+                'set__thumbnails__' + key: thumbnail_path
+            })
+            self.thumbnails[key] = thumbnail_path
 
             if not path_only:
                 buf.seek(0)
@@ -141,7 +148,7 @@ class ImageModel(DynamicDocument):
             if not path_only:
                 return gfile.GFile(thumbnail_path, 'rb')
 
-        return thumbnail_path
+        return self.thumbnails.get(key)
 
     def thumbnail_path(self, size):
         parsed = urlparse(self.path)
@@ -151,8 +158,8 @@ class ImageModel(DynamicDocument):
         folders.insert(len(folders)-1, self.THUMBNAIL_DIRECTORY)
 
         filename = os.path.basename(parsed.path)
-        root, ext = os.path.splitext(filename)
-        folders[len(folders)-1] = root + f'.{width}x{height}' + ext
+        root, _ = os.path.splitext(filename)
+        folders[len(folders)-1] = root + f'.{width}x{height}.jpg'
 
         path = parsed._replace(path='/'.join(folders)).geturl()
         directory = os.path.dirname(path)
