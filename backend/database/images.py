@@ -75,30 +75,30 @@ class ImageModel(DynamicDocument):
     @classmethod
     def create_from_path(cls, path, dataset_id=None):
 
-        fp = gfile.GFile(path, 'rb')
-        pil_image = Image.open(fp)
+        with gfile.GFile(path, 'rb') as fp:
+            pil_image = Image.open(fp)
 
-        image = cls()
-        image.file_name = os.path.basename(path)
-        image.path = path
-        image.width = pil_image.size[0]
-        image.height = pil_image.size[1]
+            image = cls()
+            image.file_name = os.path.basename(path)
+            image.path = path
+            image.width = pil_image.size[0]
+            image.height = pil_image.size[1]
 
-        if dataset_id is not None:
-            image.dataset_id = dataset_id
-        else:
-            # Get dataset name from path
-            folders = path.split('/')
-            i = folders.index("datasets")
-            dataset_name = folders[i+1]
+            if dataset_id is not None:
+                image.dataset_id = dataset_id
+            else:
+                # Get dataset name from path
+                folders = path.split('/')
+                i = folders.index("datasets")
+                dataset_name = folders[i+1]
 
-            dataset = DatasetModel.objects(name=dataset_name).first()
-            if dataset is not None:
-                image.dataset_id = dataset.id
+                dataset = DatasetModel.objects(name=dataset_name).first()
+                if dataset is not None:
+                    image.dataset_id = dataset.id
 
-        pil_image.close()
+            pil_image.close()
 
-        return image
+            return image
 
     def delete(self, *args, **kwargs):
         self.thumbnail_delete()
@@ -110,7 +110,16 @@ class ImageModel(DynamicDocument):
         Generates (if required) and returns thumbnail
         """
         if size is None:
-            size = self.MAX_THUMBNAIL_DIM
+            size = (self.MAX_THUMBNAIL_DIM[1], self.MAX_THUMBNAIL_DIM[0])
+
+        width, height = size
+
+        if not width:
+            width = self.width * height // self.height
+        if not height:
+            height = self.height * width // self.width
+
+        size = (width, height)
 
         key = '{}x{}'.format(size[0], size[1])
 
@@ -123,8 +132,6 @@ class ImageModel(DynamicDocument):
             pil_image = pil_image.convert("RGB")
 
             # Resize image to fit in MAX_THUMBNAIL_DIM envelope as necessary
-            if size is None:
-                size = (self.MAX_THUMBNAIL_DIM[1], self.MAX_THUMBNAIL_DIM[0])
             pil_image.thumbnail(size)
 
             buf = io.BytesIO()
@@ -134,6 +141,7 @@ class ImageModel(DynamicDocument):
             with gfile.GFile(thumbnail_path, 'wb') as fp:
                 pil_image.save(buf, "JPEG", quality=80, optimize=True, progressive=True)
                 fp.write(buf.getvalue())
+            pil_image.close()
 
             self.update(**{
                 'is_modified': False,
@@ -144,6 +152,8 @@ class ImageModel(DynamicDocument):
             if not path_only:
                 buf.seek(0)
                 return buf
+            else:
+                buf.close()
         else:
             if not path_only:
                 return gfile.GFile(thumbnail_path, 'rb')
@@ -212,8 +222,8 @@ class ImageModel(DynamicDocument):
 
     def __call__(self):
 
-        fp = gfile.GFile(self.path, 'rb')
-        image_array = np.fromstring(fp.read(), dtype=np.uint8)
+        with gfile.GFile(self.path, 'rb') as fp:
+            image_array = np.fromstring(fp.read(), dtype=np.uint8)
 
         image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)

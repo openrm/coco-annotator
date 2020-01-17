@@ -4,7 +4,7 @@ FROM python:3.6
 WORKDIR /workspace/
 
 # Install python package dependices
-RUN pip install cython numpy gunicorn[gevent] && \
+RUN pip install cython numpy gunicorn[eventlet]==19.9.0 && \
     pip install pycocotools
 
 # Install maskrcnn

@@ -104,10 +104,10 @@ class Images(Resource):
         )
 
         image_model.save()
-        fp = gfile.GFile(path, 'wb')
-        buf = io.BytesIO()
-        pil_image.save(buf, format=pil_image.format)
-        fp.write(buf.getvalue())
+        with gfile.GFile(path, 'wb') as fp:
+            buf = io.BytesIO()
+            pil_image.save(buf, format=pil_image.format)
+            fp.write(buf.getvalue())
 
         image.close()
         pil_image.close()
@@ -150,12 +150,14 @@ class ImageId(Resource):
         if thumbnail:
             image_io = image.thumbnail((width, height))
         else:
-            fp = gfile.GFile(image.path, 'rb')
-            pil_image = Image.open(fp)
+            with gfile.GFile(image.path, 'rb') as fp:
+                pil_image = Image.open(fp)
 
-            pil_image.thumbnail((width, height), Image.ANTIALIAS)
-            pil_image = pil_image.convert("RGB")
-            pil_image.save(image_io, "JPEG", quality=90)
+                pil_image.thumbnail((width, height), Image.ANTIALIAS)
+                pil_image = pil_image.convert("RGB")
+                pil_image.save(image_io, "JPEG", quality=90)
+
+                pil_image.close()
 
         image_io.seek(0)
 
